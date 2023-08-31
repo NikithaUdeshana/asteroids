@@ -34,19 +34,13 @@ import javax.ws.rs.core.Response;
 public class App {
 
     private static final String NEO_FEED_URL = "https://api.nasa.gov/neo/rest/v1/feed";
-
     protected static String API_KEY = "DEMO_KEY";
-
     private Client client;
-
     private ObjectMapper mapper = new ObjectMapper();
 
     public App() {
-
-
         ClientConfig configuration = new ClientConfig();
         client = ClientBuilder.newClient(configuration);
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     /**
@@ -63,9 +57,7 @@ public class App {
                 .get();
         System.out.println("Got response: " + response);
         if(response.getStatus() == Response.Status.OK.getStatusCode()) {
-            ObjectMapper mapper = new ObjectMapper();
             String content = response.readEntity(String.class);
-
 
             try {
                 Feed neoFeed = mapper.readValue(content, Feed.class);

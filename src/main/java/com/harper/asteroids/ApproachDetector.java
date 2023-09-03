@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 /**
  * Receives a set of neo ids and rates them after earth proximity.
  * Retrieves the approach data for them and sorts to the n closest.
- * https://api.nasa.gov/neo/rest/v1/neo/
+ * <a href="https://api.nasa.gov/neo/rest/v1/neo/">...</a>
  * Alerts if someone is possibly hazardous.
  */
 public class ApproachDetector {
@@ -55,12 +55,13 @@ public class ApproachDetector {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 System.out.println("Check passing of object " + id);
-                Response response = client
+                try (Response response = client
                         .target(NEO_URL + id)
                         .queryParam("api_key", App.API_KEY)
                         .request(MediaType.APPLICATION_JSON)
-                        .get();
-                return mapper.readValue(response.readEntity(String.class), NearEarthObject.class);
+                        .get()) {
+                    return mapper.readValue(response.readEntity(String.class), NearEarthObject.class);
+                }
             } catch (IOException e) {
                 System.err.println("Failed scanning for asteroids: " + e);
                 return null;

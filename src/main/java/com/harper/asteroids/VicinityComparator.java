@@ -25,11 +25,11 @@ public class VicinityComparator implements Comparator<NearEarthObject> {
         Optional<Distances> neo1ClosestPass = neo1.getCloseApproachData().stream()
                 .filter(neo -> isApproachingWithinTargetPeriod(neo, startEpochTime, endEpochTime))
                 .min(Comparator.comparing(CloseApproachData::getMissDistance))
-                .map(min -> min.getMissDistance());
+                .map(CloseApproachData::getMissDistance);
         Optional<Distances> neo2ClosestPass = neo2.getCloseApproachData().stream()
                 .filter(neo -> isApproachingWithinTargetPeriod(neo, startEpochTime, endEpochTime))
                 .min(Comparator.comparing(CloseApproachData::getMissDistance))
-                .map(min -> min.getMissDistance());
+                .map(CloseApproachData::getMissDistance);
 
         if(neo1ClosestPass.isPresent()) {
             if(neo2ClosestPass.isPresent()) {

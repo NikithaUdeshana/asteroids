@@ -23,16 +23,15 @@ import javax.ws.rs.core.Response;
 
 /**
  * Main app. Gets the list of closest asteroids from NASA at
- * https://api.nasa.gov/neo/rest/v1/feed?start_date=START_DATE&end_date=END_DATE&api_key=API_KEY
- * See documentation on the Asteroids - NeoWs API at https://api.nasa.gov/
- *
+ * <a href="https://api.nasa.gov/neo/rest/v1/feed?start_date=START_DATE&end_date=END_DATE&api_key=API_KEY">...</a>
+ * See documentation on the Asteroids - NeoWs API at <a href="https://api.nasa.gov/">...</a>
+ * <p>
  * Prints the 10 closest
- *
- * Risk of getting throttled if we don't sign up for own key on https://api.nasa.gov/
+ * <p>
+ * Risk of getting throttled if we don't sign up for own key on <a href="https://api.nasa.gov/">...</a>
  * Set environment variable 'API_KEY' to override.
  */
 public class App {
-
     private static final String NEO_FEED_URL = "https://api.nasa.gov/neo/rest/v1/feed";
     protected static String API_KEY = "DEMO_KEY";
     private Client client;
@@ -48,50 +47,49 @@ public class App {
      */
     private void checkForAsteroids() {
         LocalDate today = LocalDate.now();
-        Response response = client
+        try (Response response = client
                 .target(NEO_FEED_URL)
-                .queryParam("start_date",  today.toString())
+                .queryParam("start_date", today.toString())
                 .queryParam("end_date", today.toString())
                 .queryParam("api_key", API_KEY)
                 .request(MediaType.APPLICATION_JSON)
-                .get();
-        System.out.println("Got response: " + response);
-        if(response.getStatus() == Response.Status.OK.getStatusCode()) {
-            String content = response.readEntity(String.class);
+                .get()) {
+            System.out.println("Got response: " + response);
+            if (response.getStatus() == Response.Status.OK.getStatusCode()) {
+                String content = response.readEntity(String.class);
 
-            try {
-                LocalDate startDate = LocalDate.now();
-                LocalDate endDate = LocalDate.now().plusWeeks(1);
+                try {
+                    LocalDate startDate = LocalDate.now();
+                    LocalDate endDate = LocalDate.now().plusWeeks(1);
 
-                Feed neoFeed = mapper.readValue(content, Feed.class);
-                ApproachDetector approachDetector = new ApproachDetector(neoFeed.getAllObjectIds());
+                    Feed neoFeed = mapper.readValue(content, Feed.class);
+                    ApproachDetector approachDetector = new ApproachDetector(neoFeed.getAllObjectIds());
 
-                List<NearEarthObject> closest =  approachDetector.getNEOData(10, startDate, endDate);
-                System.out.println("Hazard?   Distance(km)    When                             Name");
-                System.out.println("----------------------------------------------------------------------");
-                for(NearEarthObject neo: closest) {
-                    Optional<CloseApproachData> closestPass = filterCloseApproachWithinWeek(neo, startDate, endDate);
+                    List<NearEarthObject> closest = approachDetector.getNEOData(10, startDate, endDate);
+                    System.out.println("Hazard?   Distance(km)    When                             Name");
+                    System.out.println("----------------------------------------------------------------------");
+                    for (NearEarthObject neo : closest) {
+                        Optional<CloseApproachData> closestPass = filterApproachesWithinTargetPeriod(neo, startDate, endDate);
 
-                    if(closestPass.isEmpty()) continue;
+                        if (closestPass.isEmpty()) continue;
 
-                    System.out.println(String.format("%s       %12.3f  %s    %s",
-                            (neo.isPotentiallyHazardous() ? "!!!" : " - "),
-                            closestPass.get().getMissDistance().getKilometers(),
-                            closestPass.get().getCloseApproachDateTime(),
-                            neo.getName()
-                            ));
+                        System.out.printf("%s       %12.3f  %s    %s%n",
+                                (neo.isPotentiallyHazardous() ? "!!!" : " - "),
+                                closestPass.get().getMissDistance().getKilometers(),
+                                closestPass.get().getCloseApproachDateTime(),
+                                neo.getName()
+                        );
+                    }
+                } catch (IOException e) {
+                    System.err.println("Failed scanning for asteroids: " + e);
                 }
-            } catch (IOException e) {
-                System.err.println("Failed scanning for asteroids: " + e);
+            } else {
+                System.err.println("Failed querying feed, got " + response.getStatus() + " " + response.getStatusInfo());
             }
         }
-        else {
-            System.err.println("Failed querying feed, got " + response.getStatus() + " " + response.getStatusInfo());
-        }
-
     }
 
-    private static Optional<CloseApproachData> filterCloseApproachWithinWeek(
+    private static Optional<CloseApproachData> filterApproachesWithinTargetPeriod(
             NearEarthObject neo,
             LocalDate startDate,
             LocalDate endDate) {

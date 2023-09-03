@@ -66,7 +66,7 @@ public class App {
                 Feed neoFeed = mapper.readValue(content, Feed.class);
                 ApproachDetector approachDetector = new ApproachDetector(neoFeed.getAllObjectIds());
 
-                List<NearEarthObject> closest =  approachDetector.getClosestApproaches(10, startDate, endDate);
+                List<NearEarthObject> closest =  approachDetector.getNEOData(10, startDate, endDate);
                 System.out.println("Hazard?   Distance(km)    When                             Name");
                 System.out.println("----------------------------------------------------------------------");
                 for(NearEarthObject neo: closest) {

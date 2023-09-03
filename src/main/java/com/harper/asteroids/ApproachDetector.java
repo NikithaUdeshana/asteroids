@@ -10,8 +10,9 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 /**
@@ -39,26 +40,41 @@ public class ApproachDetector {
      * @param endDate - end date of the period
      * @return A list of NearEarthObjects
      */
-    public List<NearEarthObject> getClosestApproaches(int limit, LocalDate startDate, LocalDate endDate) {
-        List<NearEarthObject> neos = new ArrayList<>(limit);
-        for(String id: nearEarthObjectIds) {
+    public List<NearEarthObject> getNEOData(int limit, LocalDate startDate, LocalDate endDate) {
+        List<CompletableFuture<NearEarthObject>> neoFutures = nearEarthObjectIds.stream()
+                .map(this::getNEODataAsync)
+                .collect(Collectors.toList());
+        List<NearEarthObject> neoList = neoFutures.stream()
+                .map(this::getCompletedNEOFuture)
+                .collect(Collectors.toList());
+
+        return getClosest(neoList, limit, startDate, endDate);
+    }
+
+    private CompletableFuture<NearEarthObject> getNEODataAsync(String id) {
+        return CompletableFuture.supplyAsync(() -> {
             try {
                 System.out.println("Check passing of object " + id);
                 Response response = client
-                    .target(NEO_URL + id)
-                    .queryParam("api_key", App.API_KEY)
-                    .request(MediaType.APPLICATION_JSON)
-                    .get();
-
-                NearEarthObject neo = mapper.readValue(response.readEntity(String.class), NearEarthObject.class);
-                neos.add(neo);
+                        .target(NEO_URL + id)
+                        .queryParam("api_key", App.API_KEY)
+                        .request(MediaType.APPLICATION_JSON)
+                        .get();
+                return mapper.readValue(response.readEntity(String.class), NearEarthObject.class);
             } catch (IOException e) {
                 System.err.println("Failed scanning for asteroids: " + e);
+                return null;
             }
-        }
-        System.out.println("Received " + neos.size() + " neos, now sorting");
+        });
+    }
 
-        return getClosest(neos, limit, startDate, endDate);
+    private NearEarthObject getCompletedNEOFuture(CompletableFuture<NearEarthObject> future) {
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("Failed scanning for asteroids: " + e);
+            return null;
+        }
     }
 
     /**
@@ -95,5 +111,4 @@ public class ApproachDetector {
                     return approachEpochTime >= startEpochTime && approachEpochTime <= endEpochTime;
                 });
     }
-
 }

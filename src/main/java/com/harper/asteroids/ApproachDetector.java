@@ -8,6 +8,8 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,10 +32,14 @@ public class ApproachDetector {
     }
 
     /**
-     * Get the n closest approaches in this period
-     * @param limit - n
+     * Get the n closest approaches in a given time period
+     *
+     * @param limit     - n
+     * @param startDate - starting date of the period
+     * @param endDate - end date of the period
+     * @return A list of NearEarthObjects
      */
-    public List<NearEarthObject> getClosestApproaches(int limit) {
+    public List<NearEarthObject> getClosestApproaches(int limit, LocalDate startDate, LocalDate endDate) {
         List<NearEarthObject> neos = new ArrayList<>(limit);
         for(String id: nearEarthObjectIds) {
             try {
@@ -52,22 +58,42 @@ public class ApproachDetector {
         }
         System.out.println("Received " + neos.size() + " neos, now sorting");
 
-        return getClosest(neos, limit);
+        return getClosest(neos, limit, startDate, endDate);
     }
 
     /**
-     * Get the closest passing.
-     * @param neos the NearEarthObjects
-     * @param limit
-     * @return
+     * Get the n closest approaches in a given time period.
+     *
+     * @param neoList      the NearEarthObjects
+     * @param limit        the n number of closest approaches
+     * @param startDate    the start date of the time period
+     * @param endDate      the end date of the time period
+     * @return List of NearEarthObjects
      */
-    public static List<NearEarthObject> getClosest(List<NearEarthObject> neos, int limit) {
-        //TODO: Should ignore the passes that are not today/this week.
-        return neos.stream()
+    public static List<NearEarthObject> getClosest(
+            List<NearEarthObject> neoList,
+            int limit,
+            LocalDate startDate,
+            LocalDate endDate) {
+        long startEpochTime = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        long endEpochTime = endDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        return neoList.stream()
                 .filter(neo -> neo.getCloseApproachData() != null && ! neo.getCloseApproachData().isEmpty())
-                .sorted(new VicinityComparator())
+                .filter(neo -> isApproachingWithinTargetPeriod(neo, startEpochTime, endEpochTime))
+                .sorted(new VicinityComparator(startDate, endDate))
                 .limit(limit)
                 .collect(Collectors.toList());
+    }
+
+    private static boolean isApproachingWithinTargetPeriod(
+            NearEarthObject neo,
+            Long startEpochTime,
+            Long endEpochTime) {
+        return neo.getCloseApproachData().stream()
+                .anyMatch(approachData -> {
+                    long approachEpochTime = approachData.getCloseApproachEpochDate();
+                    return approachEpochTime >= startEpochTime && approachEpochTime <= endEpochTime;
+                });
     }
 
 }

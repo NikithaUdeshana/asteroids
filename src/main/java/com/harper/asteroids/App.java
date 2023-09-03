@@ -3,7 +3,6 @@
  */
 package com.harper.asteroids;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.harper.asteroids.model.CloseApproachData;
 import com.harper.asteroids.model.Feed;
@@ -13,6 +12,7 @@ import org.glassfish.jersey.client.ClientConfig;
 import java.io.IOException;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -60,15 +60,17 @@ public class App {
             String content = response.readEntity(String.class);
 
             try {
+                LocalDate startDate = LocalDate.now();
+                LocalDate endDate = LocalDate.now().plusWeeks(1);
+
                 Feed neoFeed = mapper.readValue(content, Feed.class);
                 ApproachDetector approachDetector = new ApproachDetector(neoFeed.getAllObjectIds());
 
-                List<NearEarthObject> closest =  approachDetector.getClosestApproaches(10);
+                List<NearEarthObject> closest =  approachDetector.getClosestApproaches(10, startDate, endDate);
                 System.out.println("Hazard?   Distance(km)    When                             Name");
                 System.out.println("----------------------------------------------------------------------");
                 for(NearEarthObject neo: closest) {
-                    Optional<CloseApproachData> closestPass = neo.getCloseApproachData().stream()
-                            .min(Comparator.comparing(CloseApproachData::getMissDistance));
+                    Optional<CloseApproachData> closestPass = filterCloseApproachWithinWeek(neo, startDate, endDate);
 
                     if(closestPass.isEmpty()) continue;
 
@@ -89,6 +91,19 @@ public class App {
 
     }
 
+    private static Optional<CloseApproachData> filterCloseApproachWithinWeek(
+            NearEarthObject neo,
+            LocalDate startDate,
+            LocalDate endDate) {
+        long startEpochTime = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        long endEpochTime = endDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        return neo.getCloseApproachData().stream()
+                .filter(approachData -> {
+                    long approachEpochTime = approachData.getCloseApproachEpochDate();
+                    return approachEpochTime >= startEpochTime && approachEpochTime <= endEpochTime;
+                })
+                .min(Comparator.comparing(CloseApproachData::getMissDistance));
+    }
 
     public static void main(String[] args) {
         String apiKey = System.getenv("API_KEY");

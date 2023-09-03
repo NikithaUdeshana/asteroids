@@ -6,6 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.time.LocalDate;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -24,7 +25,11 @@ public class TestVicinityComparator {
 
     @Test
     public void testOrder() {
-        VicinityComparator comparator = new VicinityComparator();
+        //Neo1 and Neo2 have close approaches from 1925 to 2083
+        LocalDate startDate = LocalDate.of(1925, 1, 1);
+        LocalDate endDate = LocalDate.of(2083, 12, 31);
+
+        VicinityComparator comparator = new VicinityComparator(startDate, endDate);
 
         assertThat(comparator.compare(neo1, neo2), greaterThan(0));
         assertThat(comparator.compare(neo2, neo1), lessThan(0));
